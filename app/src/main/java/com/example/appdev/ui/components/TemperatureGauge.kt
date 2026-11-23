@@ -13,6 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -24,10 +25,12 @@ import kotlin.math.sin
 
 private const val START_ANGLE = 135f
 private const val SWEEP_ANGLE = 270f
+private const val MINOR_TICKS = 27
 
 /**
- * A 270° arc gauge. The value arc animates between readings; tick marks show where the
- * orange band and the red threshold begin.
+ * A 270° arc gauge. The value arc animates between readings and carries a soft glow plus a bright
+ * end marker; a halo behind it takes the status colour, and fine tick marks show the scale. Longer
+ * orange and red ticks show where the early-warning band and the threshold begin.
  */
 @Composable
 fun TemperatureGauge(
@@ -51,20 +54,46 @@ fun TemperatureGauge(
     Box(modifier, contentAlignment = Alignment.Center) {
         Canvas(Modifier.fillMaxSize()) {
             val stroke = 14.dp.toPx()
-            val inset = stroke / 2f + 12.dp.toPx()
+            val inset = stroke / 2f + 14.dp.toPx()
             val arcSize = Size(size.width - inset * 2f, size.height - inset * 2f)
             val topLeft = Offset(inset, inset)
+            val radius = arcSize.width / 2f
 
+            // Status-coloured halo behind the gauge.
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(arcColor.copy(alpha = 0.16f), Color.Transparent),
+                    center = center,
+                    radius = radius * 1.05f,
+                ),
+                radius = radius * 1.05f,
+                center = center,
+            )
+
+            // Track.
             drawArc(
                 color = HeatColors.SurfaceHighest,
                 startAngle = START_ANGLE, sweepAngle = SWEEP_ANGLE, useCenter = false,
                 topLeft = topLeft, size = arcSize,
                 style = Stroke(width = stroke, cap = StrokeCap.Round),
             )
+
+            // Fine scale marks just inside the track.
+            for (i in 0..MINOR_TICKS) {
+                val f = i / MINOR_TICKS.toFloat()
+                drawRadialMark(
+                    fraction = f,
+                    innerRadius = radius - stroke / 2f - 12.dp.toPx(),
+                    outerRadius = radius - stroke / 2f - 7.dp.toPx(),
+                    color = HeatColors.Outline.copy(alpha = if (i % 3 == 0) 0.9f else 0.45f),
+                    width = 1.5.dp.toPx(),
+                )
+            }
+
             if (temperatureC != null && fraction > 0f) {
-                // Soft glow under the value arc.
+                // Glow under the value arc, then the arc itself.
                 drawArc(
-                    color = arcColor.copy(alpha = 0.18f),
+                    color = arcColor.copy(alpha = 0.20f),
                     startAngle = START_ANGLE, sweepAngle = SWEEP_ANGLE * fraction, useCenter = false,
                     topLeft = topLeft, size = arcSize,
                     style = Stroke(width = stroke * 2.2f, cap = StrokeCap.Round),
@@ -75,25 +104,26 @@ fun TemperatureGauge(
                     topLeft = topLeft, size = arcSize,
                     style = Stroke(width = stroke, cap = StrokeCap.Round),
                 )
+                // Bright marker at the current value.
+                val end = pointOnArc(START_ANGLE + SWEEP_ANGLE * fraction, radius)
+                drawCircle(arcColor.copy(alpha = 0.25f), radius = 13.dp.toPx(), center = end)
+                drawCircle(Color.White.copy(alpha = 0.92f), radius = 5.dp.toPx(), center = end)
             }
-            val radius = arcSize.width / 2f
-            drawTick(warningFraction, radius, stroke, HeatColors.Elevated)
-            drawTick(thresholdFraction, radius, stroke, HeatColors.Critical)
+
+            // Where the warning band and the threshold begin.
+            drawRadialMark(warningFraction, radius + stroke / 2f + 3.dp.toPx(), radius + stroke / 2f + 11.dp.toPx(), HeatColors.Elevated, 3.dp.toPx())
+            drawRadialMark(thresholdFraction, radius + stroke / 2f + 3.dp.toPx(), radius + stroke / 2f + 11.dp.toPx(), HeatColors.Critical, 3.dp.toPx())
         }
         content()
     }
 }
 
-private fun DrawScope.drawTick(fraction: Float, radius: Float, stroke: Float, color: Color) {
-    val angle = Math.toRadians((START_ANGLE + SWEEP_ANGLE * fraction).toDouble())
-    val inner = radius + stroke / 2f + 3.dp.toPx()
-    val outer = radius + stroke / 2f + 11.dp.toPx()
-    val c = center
-    drawLine(
-        color = color,
-        start = Offset(c.x + inner * cos(angle).toFloat(), c.y + inner * sin(angle).toFloat()),
-        end = Offset(c.x + outer * cos(angle).toFloat(), c.y + outer * sin(angle).toFloat()),
-        strokeWidth = 3.dp.toPx(),
-        cap = StrokeCap.Round,
-    )
+private fun DrawScope.pointOnArc(angleDegrees: Float, radius: Float): Offset {
+    val a = Math.toRadians(angleDegrees.toDouble())
+    return Offset(center.x + radius * cos(a).toFloat(), center.y + radius * sin(a).toFloat())
+}
+
+private fun DrawScope.drawRadialMark(fraction: Float, innerRadius: Float, outerRadius: Float, color: Color, width: Float) {
+    val angle = START_ANGLE + SWEEP_ANGLE * fraction
+    drawLine(color, pointOnArc(angle, innerRadius), pointOnArc(angle, outerRadius), strokeWidth = width, cap = StrokeCap.Round)
 }

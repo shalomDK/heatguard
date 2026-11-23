@@ -14,6 +14,10 @@ the only thing that uses the network is the **optional, opt-in AI assistant** (s
 |---|---|---|
 | Live monitoring | Real battery temperature in °C/°F, green/orange/red indicator, configurable threshold (default 40 °C) | `data/battery`, `domain/thermal`, `ui/dashboard` |
 | Alerts | Exact warning "Your phone is hot: stop gaming or charging", notification, vibration, hysteresis so it does not repeat | `domain/alert`, `platform/AlertNotifier` |
+| Heat Autopsy | Each incident stores the context at its start (brightness, battery saver, free RAM, heating rate). The incident page compares it with the user's own history and lists which factors stood out, with an honest "could not check" list; "Explain with AI" sends it to the assistant. Hints, not proof | `domain/autopsy/HeatAutopsy.kt`, `domain/incident/IncidentContext.kt`, `ui/history/AutopsyCard.kt` |
+| Heat Tax | A fixed, deterministic CPU test (median of 3 trials) is stored with the battery temperature. The Live Analytics card shows "% of normal speed", a verdict and speed by temperature band. Normal speed is the user's own cool-phone result (firm after 3 tests under 35 °C, otherwise provisional). Demo Mode uses a labelled simulated model | `domain/perf/HeatTax.kt`, `data/perf/SpeedTestController.kt`, `ui/analytics/HeatTaxCard.kt` |
+| Charging Lab | Every charge is recorded automatically (kind of source, start/peak temperature, average, battery gained, duration). The Insights screen ranks the user's own chargers (AC / USB / wireless) by how much the phone warmed during charging, but only once at least two kinds have 3 sessions of 10+ minutes each, and reports "no clear difference" when they are within 1 °C. Android cannot tell wattage or cable quality, and phone use also heats it, so it is a guide, not proof. Demo Mode shows a fixed, labelled simulated set | `domain/charging/ChargingLab.kt`, `data/db/ChargeSessionStorage.kt`, `ui/insights/ChargingLabCard.kt` |
+| Heat pre-alert | "Heating fast: about N min to your limit" sent *before* the threshold is reached, from the forecast. Needs a confident forecast, follows the active profile's threshold, once per approach with a 10-minute cooldown and re-arming, and can be switched off in Settings | `domain/alert/PreAlertDetector.kt`, `platform/MonitoringCoordinator.kt` |
 | Background monitoring | Foreground service with a persistent notification and a Stop action | `platform/MonitoringService` |
 | Incidents | Room database: start, initial and peak temperature, duration, resolution, battery %, charging type, timeline | `domain/incident`, `data/db`, `ui/history` |
 | Prediction | Linear trend over the last 5 minutes, estimated time to threshold with a confidence level | `domain/thermal/TemperatureTrend.kt` |
@@ -102,6 +106,11 @@ An opt-in chat (the sparkle button on every screen) that answers questions about
   read timeouts, transient failures (rate limits, 5xx, dropped connections) are retried with back-off, a hard
   two-minute deadline guarantees an answer or a clear error, Stop cancels the connection immediately, and a
   cancelled answer can never overwrite the next one.
+* **Voice (optional):** with nothing typed, the send button becomes a microphone that opens Android's own
+  speech-recognition screen, and the spoken question is sent straight away. Each answer has a speaker button that
+  reads it aloud with Android's text-to-speech. Both use the phone's built-in services, so the app needs no
+  microphone permission and ships no speech code. Speech recognition is handled by Android's recogniser (on many
+  phones this is Google's, which may process audio online under that service's own terms), not by this app.
 * The chat lives in memory only and is cleared when the app process ends.
 
 Answers are AI-generated and can be wrong; the app says so.
@@ -123,10 +132,12 @@ Use **Demo Mode** so the story is repeatable. Settings, then Demo Mode, then Ope
 1. **Dashboard, real data (30 s).** Show the live reading, status colour and charging state. Point out the
    "monitoring" card and that the temperature is the real battery sensor.
 2. **Turn on Demo Mode (15 s).** The blue "DEMO MODE · simulated data" banner appears everywhere.
-3. **Full cycle (about 5 min; talk over it).** Pick *Full cycle* and go back to the Dashboard. The simulation starts
-   from 28 °C and warms at about 5 °C per minute.
+3. **Full cycle (about 6 min; talk over it).** Pick *Full cycle* and go back to the Dashboard. The simulation starts
+   from 28 °C and warms at about 3.6 °C per minute.
    * After roughly a minute the forecast changes from "collecting" to "Reaches threshold in about N min"
      and counts down.
+   * At that moment the **"Heating fast: about N min to your limit" pre-alert** notification appears, a couple of
+     minutes *before* the real alert. It is sent once per approach and withdrawn when the real alert takes over.
    * The Thermal Risk Index climbs; tap "How this is calculated" to show the factors.
    * The ring turns orange, then red, with the warning "Your phone is hot: stop gaming or charging"
      and a labelled demo notification with vibration.

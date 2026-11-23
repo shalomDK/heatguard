@@ -21,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.example.appdev.ui.components.AssistantIconButton
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -29,6 +30,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.appdev.R
+import com.example.appdev.domain.autopsy.AutopsyPrompt
+import com.example.appdev.domain.autopsy.AutopsyReport
+import com.example.appdev.ui.components.LocalAskAssistant
 import com.example.appdev.domain.incident.Incident
 import com.example.appdev.domain.incident.TimelineEntry
 import com.example.appdev.domain.incident.TimelineMarker
@@ -67,6 +71,8 @@ fun IncidentDetailRoute(
                 style = MaterialTheme.typography.titleLarge,
                 color = HeatColors.TextPrimary,
             )
+            Spacer(Modifier.weight(1f))
+            AssistantIconButton()
         }
         when (val s = state) {
             DetailUiState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -80,13 +86,19 @@ fun IncidentDetailRoute(
                     textAlign = TextAlign.Center,
                 )
             }
-            is DetailUiState.Loaded -> IncidentDetailContent(s.incident, s.timeline, s.unit)
+            is DetailUiState.Loaded -> IncidentDetailContent(s.incident, s.timeline, s.unit, s.autopsy)
         }
     }
 }
 
 @Composable
-private fun IncidentDetailContent(incident: Incident, timeline: List<TimelineEntry>, unit: TemperatureUnit) {
+private fun IncidentDetailContent(
+    incident: Incident,
+    timeline: List<TimelineEntry>,
+    unit: TemperatureUnit,
+    autopsy: AutopsyReport,
+) {
+    val askAssistant = LocalAskAssistant.current
     val formatDateTime = rememberDateTimeFormatter()
     val formatTime = rememberTimeFormatter()
     val unavailable = stringResource(R.string.detail_unavailable)
@@ -150,6 +162,13 @@ private fun IncidentDetailContent(incident: Incident, timeline: List<TimelineEnt
                 }
             }
         }
+        item {
+            AutopsyCard(
+                report = autopsy,
+                unit = unit,
+                onExplain = { askAssistant(AutopsyPrompt.build(incident, autopsy, System.currentTimeMillis())) },
+            )
+        }
         if (timeline.size >= 2) {
             item {
                 HeatCard(Modifier.fillMaxWidth(), spacing = 10.dp) {
@@ -181,7 +200,7 @@ private fun IncidentDetailContent(incident: Incident, timeline: List<TimelineEnt
         items(timeline, key = { it.timestampMillis }) { entry ->
             TimelineRow(entry, unit, formatTime(entry.timestampMillis))
         }
-        item { Spacer(Modifier.height(80.dp)) }
+        item { Spacer(Modifier.height(16.dp)) }
     }
 }
 

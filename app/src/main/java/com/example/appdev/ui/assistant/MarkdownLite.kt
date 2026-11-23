@@ -34,6 +34,11 @@ object MarkdownLite {
         return blocks
     }
 
+    /** The text without any Markdown marks, one block per line. Used to read an answer aloud. */
+    fun plainText(text: String): String = parse(text).joinToString("\n") { block ->
+        block.spans.joinToString("") { it.text }
+    }
+
     fun inline(text: String): List<Span> {
         val spans = mutableListOf<Span>()
         val plain = StringBuilder()

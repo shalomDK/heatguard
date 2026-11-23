@@ -33,6 +33,9 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import com.example.appdev.ui.components.rememberClockFormatter
+import com.example.appdev.ui.components.AssistantIconButton
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -77,6 +80,7 @@ import com.example.appdev.domain.thermal.SessionStats
 import com.example.appdev.domain.thermal.TemperatureLevel
 import com.example.appdev.domain.thermal.ThermalAssessment
 import com.example.appdev.ui.components.HeatCard
+import com.example.appdev.ui.components.Reveal
 import com.example.appdev.ui.components.TemperatureGauge
 import com.example.appdev.ui.components.labelRes
 import com.example.appdev.ui.components.rememberTimeFormatter
@@ -141,15 +145,20 @@ fun DashboardScreen(
     val unit = assessment.settings.unit
     val snapshot = assessment.snapshot
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 88.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        DashboardHeader(lastUpdateMillis = snapshot?.timestampMillis)
-
+    Column(modifier.fillMaxSize()) {
+        // Pinned top bar: title, Live indicator and assistant icon stay in view while the cards scroll.
+        DashboardHeader(
+            lastUpdateMillis = snapshot?.timestampMillis,
+            modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, top = 8.dp, bottom = 6.dp),
+        )
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(start = 20.dp, end = 20.dp, top = 6.dp, bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
         AnimatedVisibility(
             visible = assessment.level == TemperatureLevel.CRITICAL,
             enter = fadeIn() + expandVertically(),
@@ -158,15 +167,15 @@ fun DashboardScreen(
             OverheatBanner()
         }
 
-        TemperatureHeroCard(state)
+        Reveal(0) { TemperatureHeroCard(state) }
 
-        PreCallReadinessCard(state.readiness, state.system, assessment.settings.unit)
+        Reveal(1) { PreCallReadinessCard(state.readiness, state.system, assessment.settings.unit) }
 
-        ProfileCard(assessment.settings, onSelectProfile)
+        Reveal(2) { ProfileCard(assessment.settings, onSelectProfile) }
 
-        PredictionCard(state.analysis.prediction, assessment.settings)
-        RiskIndexCard(state.analysis.risk, state.analysis, assessment)
-        SystemThermalCard(state.system)
+        Reveal(3) { PredictionCard(state.analysis.prediction, assessment.settings) }
+        Reveal(4) { RiskIndexCard(state.analysis.risk, state.analysis, assessment) }
+        Reveal(5) { SystemThermalCard(state.system) }
 
         MonitoringCard(
             state = state,
@@ -231,15 +240,15 @@ fun DashboardScreen(
             color = HeatColors.TextTertiary,
             modifier = Modifier.padding(horizontal = 4.dp),
         )
-        Spacer(Modifier.height(8.dp))
+        }
     }
 }
 
 @Composable
-private fun DashboardHeader(lastUpdateMillis: Long?) {
-    val formatTime = rememberTimeFormatter()
+private fun DashboardHeader(lastUpdateMillis: Long?, modifier: Modifier = Modifier) {
+    val formatTime = rememberClockFormatter()
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
@@ -247,12 +256,16 @@ private fun DashboardHeader(lastUpdateMillis: Long?) {
                 text = stringResource(R.string.app_name),
                 style = MaterialTheme.typography.headlineMedium,
                 color = HeatColors.TextPrimary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.semantics { heading() },
             )
             Text(
                 text = stringResource(R.string.dashboard_subtitle),
                 style = MaterialTheme.typography.bodyMedium,
                 color = HeatColors.TextSecondary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
         LivePill(
@@ -263,6 +276,8 @@ private fun DashboardHeader(lastUpdateMillis: Long?) {
             },
             active = lastUpdateMillis != null,
         )
+        Spacer(Modifier.width(6.dp))
+        AssistantIconButton()
     }
 }
 
@@ -277,8 +292,9 @@ private fun LivePill(text: String, active: Boolean) {
     )
     Row(
         modifier = Modifier
+            .widthIn(max = 150.dp)
             .background(HeatColors.SurfaceRaised, CircleShape)
-            .padding(horizontal = 12.dp, vertical = 6.dp),
+            .padding(horizontal = 10.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -292,6 +308,8 @@ private fun LivePill(text: String, active: Boolean) {
             text = text,
             style = MaterialTheme.typography.labelMedium,
             color = HeatColors.TextSecondary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }
@@ -453,12 +471,17 @@ private fun MetricTile(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Icon(
-                painter = painterResource(icon),
-                contentDescription = null,
-                tint = iconTint,
-                modifier = Modifier.size(18.dp),
-            )
+            Box(
+                Modifier.size(28.dp).background(iconTint.copy(alpha = 0.14f), CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painter = painterResource(icon),
+                    contentDescription = null,
+                    tint = iconTint,
+                    modifier = Modifier.size(16.dp),
+                )
+            }
             Text(
                 text = label.uppercase(),
                 style = MaterialTheme.typography.labelSmall,

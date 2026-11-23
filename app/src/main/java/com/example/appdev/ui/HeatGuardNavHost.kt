@@ -1,43 +1,49 @@
 package com.example.appdev.ui
 
 import androidx.annotation.DrawableRes
-import com.example.appdev.ui.assistant.ScreenContext
-import com.example.appdev.ui.assistant.AssistantRoute
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.material3.FloatingActionButtonDefaults
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.layout.consumeWindowInsets
-import androidx.compose.foundation.layout.Box
-import com.example.appdev.ui.demo.DemoRoute
-import com.example.appdev.HeatGuardApp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.Alignment
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.background
 import androidx.annotation.StringRes
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBarDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
@@ -47,10 +53,16 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.example.appdev.HeatGuardApp
 import com.example.appdev.R
 import com.example.appdev.ui.analytics.AnalyticsRoute
+import com.example.appdev.ui.assistant.AssistantRoute
+import com.example.appdev.ui.assistant.ScreenContext
 import com.example.appdev.ui.coach.CoachRoute
+import com.example.appdev.ui.components.LocalAskAssistant
+import com.example.appdev.ui.components.LocalOpenAssistant
 import com.example.appdev.ui.dashboard.DashboardRoute
+import com.example.appdev.ui.demo.DemoRoute
 import com.example.appdev.ui.history.HistoryRoute
 import com.example.appdev.ui.history.IncidentDetailRoute
 import com.example.appdev.ui.history.IncidentDetailViewModel
@@ -88,107 +100,152 @@ fun HeatGuardNavHost(navController: NavHostController = rememberNavController())
     val onAssistant = route == ScreenContext.ASSISTANT_ROUTE
     // The screen the user was on when they opened the assistant, so answers and suggestions fit it.
     var assistantOrigin by rememberSaveable { mutableStateOf<String?>(null) }
-    val openAssistant = {
-        assistantOrigin = route
-        navController.navigate(ScreenContext.ASSISTANT_ROUTE) { launchSingleTop = true }
+    val openAssistant: () -> Unit = {
+        if (route != ScreenContext.ASSISTANT_ROUTE) {
+            assistantOrigin = route
+            navController.navigate(ScreenContext.ASSISTANT_ROUTE) { launchSingleTop = true }
+        }
     }
 
-    Scaffold(
-        containerColor = HeatColors.Background,
-        bottomBar = {
-            // The chat is full screen so the keyboard and input bar have the whole height.
-            if (!onAssistant) NavigationBar(containerColor = HeatColors.Surface, tonalElevation = 0.dp) {
-                TopLevelDestination.entries.forEach { destination ->
-                    // The incident detail screen belongs to the History tab.
-                    val selected = currentDestination?.hierarchy?.any {
-                        it.route == destination.route ||
-                            (destination == TopLevelDestination.HISTORY && it.route?.startsWith(INCIDENT_ROUTE) == true) ||
-                            (destination == TopLevelDestination.SETTINGS && it.route == DEMO_ROUTE)
-                    } == true
-                    NavigationBarItem(
-                        selected = selected,
-                        onClick = { navController.navigateToTopLevel(destination) },
-                        icon = { Icon(painterResource(destination.icon), contentDescription = null) },
-                        label = {
-                            // Six tabs share the bar, so labels are kept compact and never wrap.
-                            Text(
-                                stringResource(destination.label),
-                                fontSize = 10.sp,
-                                letterSpacing = 0.sp,
-                                maxLines = 1,
-                                softWrap = false,
-                            )
+    // A ready-made question waiting to be sent when the assistant opens (e.g. "explain this incident").
+    var pendingPrompt by rememberSaveable { mutableStateOf<String?>(null) }
+    val askAssistant: (String) -> Unit = { prompt ->
+        pendingPrompt = prompt
+        openAssistant()
+    }
+
+    // Every screen header shows an assistant icon that calls this.
+    CompositionLocalProvider(LocalOpenAssistant provides openAssistant, LocalAskAssistant provides askAssistant) {
+        Scaffold(
+            // A gentle vertical gradient behind every screen instead of a flat fill.
+            modifier = Modifier.background(Brush.verticalGradient(listOf(HeatColors.BackgroundTop, HeatColors.Background))),
+            containerColor = Color.Transparent,
+            bottomBar = {
+                // The chat is full screen so the keyboard and input bar have the whole height.
+                if (!onAssistant) {
+                    CompactNavigationBar(
+                        destinations = TopLevelDestination.entries,
+                        isSelected = { destination ->
+                            // The incident detail screen belongs to History; demo controls belong to Settings.
+                            currentDestination?.hierarchy?.any {
+                                it.route == destination.route ||
+                                    (destination == TopLevelDestination.HISTORY && it.route?.startsWith(INCIDENT_ROUTE) == true) ||
+                                    (destination == TopLevelDestination.SETTINGS && it.route == DEMO_ROUTE)
+                            } == true
                         },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = HeatColors.Accent,
-                            selectedTextColor = HeatColors.TextPrimary,
-                            indicatorColor = HeatColors.SurfaceHighest,
-                            unselectedIconColor = HeatColors.TextSecondary,
-                            unselectedTextColor = HeatColors.TextSecondary,
-                        ),
+                        onSelect = { navController.navigateToTopLevel(it) },
                     )
                 }
+            },
+        ) { innerPadding ->
+            Column(Modifier.fillMaxSize().padding(innerPadding).consumeWindowInsets(innerPadding)) {
+                if (demoEnabled) {
+                    DemoBanner(
+                        onOpenControls = { navController.navigate(DEMO_ROUTE) { launchSingleTop = true } },
+                        onExit = { container.demoMode.setEnabled(false) },
+                    )
+                }
+                NavHost(
+                    navController = navController,
+                    startDestination = TopLevelDestination.DASHBOARD.route,
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                ) {
+                    composable(TopLevelDestination.DASHBOARD.route) {
+                        DashboardRoute(onOpenSettings = { navController.navigateToTopLevel(TopLevelDestination.SETTINGS) })
+                    }
+                    composable(TopLevelDestination.ANALYTICS.route) { AnalyticsRoute() }
+                    composable(TopLevelDestination.INSIGHTS.route) { InsightsRoute() }
+                    composable(TopLevelDestination.COACH.route) { CoachRoute() }
+                    composable(TopLevelDestination.HISTORY.route) {
+                        HistoryRoute(onOpenIncident = { id -> navController.navigate("$INCIDENT_ROUTE/$id") })
+                    }
+                    composable(
+                        route = "$INCIDENT_ROUTE/{${IncidentDetailViewModel.ARG_ID}}",
+                        arguments = listOf(navArgument(IncidentDetailViewModel.ARG_ID) { type = NavType.LongType }),
+                    ) {
+                        IncidentDetailRoute(onBack = { navController.popBackStack() })
+                    }
+                    composable(TopLevelDestination.SETTINGS.route) {
+                        SettingsRoute(
+                            onOpenDemo = { navController.navigate(DEMO_ROUTE) { launchSingleTop = true } },
+                            onOpenAssistant = openAssistant,
+                        )
+                    }
+                    composable(DEMO_ROUTE) { DemoRoute(onBack = { navController.popBackStack() }) }
+                    composable(ScreenContext.ASSISTANT_ROUTE) {
+                        AssistantRoute(
+                            originRoute = assistantOrigin,
+                            onBack = { navController.popBackStack() },
+                            pendingPrompt = pendingPrompt,
+                            onPromptConsumed = { pendingPrompt = null },
+                        )
+                    }
+                }
             }
-        },
-    ) { innerPadding ->
-        Column(Modifier.fillMaxSize().padding(innerPadding).consumeWindowInsets(innerPadding)) {
-        if (demoEnabled) {
-            DemoBanner(
-                onOpenControls = { navController.navigate(DEMO_ROUTE) { launchSingleTop = true } },
-                onExit = { container.demoMode.setEnabled(false) },
-            )
-        }
-        Box(Modifier.weight(1f).fillMaxWidth()) {
-        NavHost(
-            navController = navController,
-            startDestination = TopLevelDestination.DASHBOARD.route,
-            modifier = Modifier.fillMaxSize(),
-        ) {
-            composable(TopLevelDestination.DASHBOARD.route) {
-                DashboardRoute(onOpenSettings = { navController.navigateToTopLevel(TopLevelDestination.SETTINGS) })
-            }
-            composable(TopLevelDestination.ANALYTICS.route) {
-                AnalyticsRoute()
-            }
-            composable(TopLevelDestination.INSIGHTS.route) {
-                InsightsRoute()
-            }
-            composable(TopLevelDestination.COACH.route) {
-                CoachRoute()
-            }
-            composable(TopLevelDestination.HISTORY.route) {
-                HistoryRoute(onOpenIncident = { id -> navController.navigate("$INCIDENT_ROUTE/$id") })
-            }
-            composable(
-                route = "$INCIDENT_ROUTE/{${IncidentDetailViewModel.ARG_ID}}",
-                arguments = listOf(navArgument(IncidentDetailViewModel.ARG_ID) { type = NavType.LongType }),
-            ) {
-                IncidentDetailRoute(onBack = { navController.popBackStack() })
-            }
-            composable(TopLevelDestination.SETTINGS.route) {
-                SettingsRoute(
-                    onOpenDemo = { navController.navigate(DEMO_ROUTE) { launchSingleTop = true } },
-                    onOpenAssistant = openAssistant,
-                )
-            }
-            composable(DEMO_ROUTE) {
-                DemoRoute(onBack = { navController.popBackStack() })
-            }
-            composable(ScreenContext.ASSISTANT_ROUTE) {
-                AssistantRoute(originRoute = assistantOrigin, onBack = { navController.popBackStack() })
-            }
-        }
-        // One assistant, reachable from every screen except the chat itself and the demo controls.
-        if (!onAssistant && route != DEMO_ROUTE) {
-            AskAiButton(
-                onClick = openAssistant,
-                modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 16.dp),
-            )
-        }
-        }
         }
     }
 }
+
+/**
+ * A slimmer replacement for Material's navigation bar (which is a fixed 80 dp tall). Same six
+ * destinations and colours, but a 56 dp bar with a smaller icon and a tight icon-to-label gap, so it
+ * leaves more of the screen to the content. Selection is exposed to accessibility as a tab.
+ */
+@Composable
+private fun CompactNavigationBar(
+    destinations: List<TopLevelDestination>,
+    isSelected: (TopLevelDestination) -> Boolean,
+    onSelect: (TopLevelDestination) -> Unit,
+) {
+    Surface(color = HeatColors.Surface, tonalElevation = 0.dp) {
+        Column(Modifier.windowInsetsPadding(NavigationBarDefaults.windowInsets)) {
+            HorizontalDivider(color = HeatColors.OutlineSubtle)
+            Row(
+                Modifier.fillMaxWidth().height(BAR_HEIGHT).selectableGroup(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                destinations.forEach { destination ->
+                    val selected = isSelected(destination)
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .selectable(selected = selected, role = Role.Tab, onClick = { onSelect(destination) })
+                            .padding(top = 5.dp, bottom = 3.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                    ) {
+                        Box(
+                            Modifier
+                                .height(24.dp)
+                                .width(44.dp)
+                                .background(if (selected) HeatColors.SurfaceHighest else Color.Transparent, RoundedCornerShape(12.dp)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                painter = painterResource(destination.icon),
+                                contentDescription = null,
+                                tint = if (selected) HeatColors.Accent else HeatColors.TextSecondary,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        }
+                        Text(
+                            stringResource(destination.label),
+                            fontSize = 10.sp,
+                            lineHeight = 12.sp,
+                            letterSpacing = 0.sp,
+                            maxLines = 1,
+                            softWrap = false,
+                            color = if (selected) HeatColors.TextPrimary else HeatColors.TextSecondary,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+private val BAR_HEIGHT = 56.dp
 
 /** Always visible while Demo Mode is on, so simulated data can never be mistaken for real data. */
 @Composable
@@ -220,19 +277,5 @@ private fun NavHostController.navigateToTopLevel(destination: TopLevelDestinatio
         popUpTo(graph.findStartDestination().id) { saveState = true }
         launchSingleTop = true
         restoreState = true
-    }
-}
-
-@Composable
-private fun AskAiButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
-    FloatingActionButton(
-        onClick = onClick,
-        modifier = modifier,
-        shape = CircleShape,
-        containerColor = HeatColors.Accent,
-        contentColor = HeatColors.OnAccent,
-        elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 3.dp, pressedElevation = 6.dp),
-    ) {
-        Icon(painterResource(R.drawable.ic_sparkle), contentDescription = stringResource(R.string.ai_fab))
     }
 }

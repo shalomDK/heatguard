@@ -23,6 +23,8 @@ data class Incident(
     val endBatteryPercent: Int?,
     val startChargeStatus: ChargeStatus,
     val startPowerSource: PowerSource,
+    /** Phone-wide context when the incident began; null for incidents recorded before this was captured. */
+    val context: IncidentContext? = null,
 ) {
     val isActive: Boolean get() = endMillis == null
 

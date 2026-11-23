@@ -48,6 +48,10 @@ class SettingsViewModel(
         viewModelScope.launch { repository.setVibrationEnabled(enabled) }
     }
 
+    fun setPreAlertsEnabled(enabled: Boolean) {
+        viewModelScope.launch { repository.setPreAlertsEnabled(enabled) }
+    }
+
     fun setProfile(profile: com.example.appdev.domain.profile.ProfileType?) {
         viewModelScope.launch { repository.setActiveProfile(profile) }
     }

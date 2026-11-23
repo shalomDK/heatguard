@@ -107,6 +107,38 @@ class AlertNotifier(context: Context) : AlertPresenter {
         manager.notify(ID_ALERT, notification)
     }
 
+    /**
+     * The early warning. It is deliberately calmer than the real alert: its own channel with normal
+     * importance (the user can silence it separately), no vibration, and wording that says "could".
+     */
+    @SuppressLint("MissingPermission")
+    override fun showPreAlert(snapshot: BatterySnapshot, settings: UserSettings, minutes: Int) {
+        if (!settings.notificationsEnabled || !settings.preAlertsEnabled || !canPost()) return
+        val limit = Temperatures.format(settings.thresholdC, settings.unit)
+        val title = if (minutes <= 1) {
+            context.getString(R.string.notif_pre_title_soon)
+        } else {
+            context.getString(R.string.notif_pre_title, minutes)
+        }
+        val text = context.getString(R.string.notif_pre_text, limit)
+        val notification = NotificationCompat.Builder(context, CHANNEL_PRE_ALERT)
+            .setSmallIcon(R.drawable.ic_thermostat)
+            .setContentTitle(demoLabelled(title, snapshot))
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setContentIntent(openAppIntent())
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setCategory(NotificationCompat.CATEGORY_STATUS)
+            .setOnlyAlertOnce(true)
+            .setAutoCancel(true)
+            .build()
+        manager.notify(ID_PRE_ALERT, notification)
+    }
+
+    override fun cancelPreAlert() {
+        manager.cancel(ID_PRE_ALERT)
+    }
+
     override fun cancelOverheatAlert() {
         manager.cancel(ID_ALERT)
     }
@@ -171,6 +203,16 @@ class AlertNotifier(context: Context) : AlertPresenter {
                 enableVibration(false) // handled explicitly so the in-app toggle is honoured
             },
         )
+        system.createNotificationChannel(
+            NotificationChannel(
+                CHANNEL_PRE_ALERT,
+                context.getString(R.string.channel_pre_alert_name),
+                NotificationManager.IMPORTANCE_DEFAULT,
+            ).apply {
+                description = context.getString(R.string.channel_pre_alert_desc)
+                enableVibration(false)
+            },
+        )
     }
 
     companion object {
@@ -178,6 +220,8 @@ class AlertNotifier(context: Context) : AlertPresenter {
         const val CHANNEL_ALERT = "overheat_alerts"
         const val ID_MONITOR = 1001
         const val ID_ALERT = 1002
+        const val CHANNEL_PRE_ALERT = "heating_warnings"
+        const val ID_PRE_ALERT = 1003
         private const val REQUEST_OPEN = 1
         private const val REQUEST_STOP = 2
         private val VIBRATION_PATTERN = longArrayOf(0, 400, 200, 400, 200, 400)

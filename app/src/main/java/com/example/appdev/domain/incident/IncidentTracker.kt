@@ -25,6 +25,8 @@ class IncidentTracker(
     private val source: ReadingSource = ReadingSource.DEVICE,
     private val sampleIntervalMillis: Long = DEFAULT_SAMPLE_INTERVAL_MILLIS,
     private val maxGapMillis: Long = DEFAULT_MAX_GAP_MILLIS,
+    /** Captures the phone's context at the moment an incident begins (for the Heat Autopsy). */
+    private val contextProvider: (BatterySnapshot) -> IncidentContext? = { null },
 ) {
     private var detector = OverheatDetector()
     private var current: Incident? = null
@@ -91,6 +93,8 @@ class IncidentTracker(
             endBatteryPercent = null,
             startChargeStatus = snapshot.chargeStatus,
             startPowerSource = snapshot.powerSource,
+            // A failure to read context must never stop an incident from being recorded.
+            context = runCatching { contextProvider(snapshot) }.getOrNull(),
         )
         val saved = draft.copy(id = repository.start(draft))
         repository.addSample(sampleOf(saved.id, snapshot, temperature))

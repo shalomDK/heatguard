@@ -1,5 +1,11 @@
 package com.example.appdev.ui.assistant
 
+import android.app.Activity
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.speech.RecognizerIntent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import android.text.format.DateFormat
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -97,10 +103,21 @@ import java.util.Date
 fun AssistantRoute(
     originRoute: String?,
     onBack: () -> Unit,
+    pendingPrompt: String? = null,
+    onPromptConsumed: () -> Unit = {},
     viewModel: AssistantViewModel = viewModel(factory = AssistantViewModel.Factory),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val screen = ScreenContext.label(originRoute)
+
+    // A question handed over from another screen is sent once the assistant is set up and idle. If setup is
+    // still needed, it waits on screen state and goes out the moment the user finishes.
+    LaunchedEffect(pendingPrompt, state.ready, state.isGenerating) {
+        if (pendingPrompt != null && state.ready && !state.isGenerating) {
+            viewModel.send(pendingPrompt, screen)
+            onPromptConsumed()
+        }
+    }
     AssistantScreen(
         state = state,
         screenLabel = screen,
@@ -129,6 +146,9 @@ fun AssistantScreen(
     loadPreview: suspend () -> String,
 ) {
     var showSees by rememberSaveable { mutableStateOf(false) }
+    val speech = rememberSpeechOutput()
+    // A new question silences whatever was being read aloud.
+    LaunchedEffect(state.isGenerating) { if (state.isGenerating) speech.stop() }
 
     Column(Modifier.fillMaxSize().imePadding()) {
         Header(
@@ -147,7 +167,7 @@ fun AssistantScreen(
                 if (state.messages.isEmpty() && !state.isGenerating) {
                     EmptyState(screenLabel, suggestions, onSend)
                 } else {
-                    MessageList(state, onRetry)
+                    MessageList(state, onRetry, speech)
                 }
             }
             if (state.messages.isNotEmpty() && !state.isGenerating) SuggestionRow(suggestions, onSend)
@@ -414,7 +434,7 @@ private fun SuggestionRow(suggestions: List<ScreenContext.Suggestion>, onSend: (
 // ------------------------------------------------------------------ messages
 
 @Composable
-private fun MessageList(state: AssistantUiState, onRetry: () -> Unit) {
+private fun MessageList(state: AssistantUiState, onRetry: () -> Unit, speech: SpeechOutput) {
     val listState = rememberLazyListState()
     val messages = state.messages
     val thinking = state.phase == AssistantPhase.THINKING
@@ -441,7 +461,15 @@ private fun MessageList(state: AssistantUiState, onRetry: () -> Unit) {
             if (message.role == ChatRole.USER) {
                 UserBubble(message, time)
             } else {
-                AssistantBubble(message, time, canRetry = message.id == messages.last().id && !state.isGenerating, onRetry = onRetry)
+                val canSpeak = !message.streaming && message.failure == null && message.text.isNotBlank()
+                AssistantBubble(
+                    message = message,
+                    time = time,
+                    canRetry = message.id == messages.last().id && !state.isGenerating,
+                    onRetry = onRetry,
+                    speaking = speech.speakingId == message.id,
+                    onSpeak = if (canSpeak) ({ speech.toggle(message.id, MarkdownLite.plainText(message.text)) }) else null,
+                )
             }
         }
         if (thinking) item(key = "typing") { TypingIndicator() }
@@ -467,7 +495,14 @@ private fun UserBubble(message: ChatMessage, time: String) {
 }
 
 @Composable
-private fun AssistantBubble(message: ChatMessage, time: String, canRetry: Boolean, onRetry: () -> Unit) {
+private fun AssistantBubble(
+    message: ChatMessage,
+    time: String,
+    canRetry: Boolean,
+    onRetry: () -> Unit,
+    speaking: Boolean,
+    onSpeak: (() -> Unit)?,
+) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Top) {
         Avatar(size = 28)
         Column(Modifier.widthIn(max = 340.dp)) {
@@ -493,7 +528,19 @@ private fun AssistantBubble(message: ChatMessage, time: String, canRetry: Boolea
                 }
             }
             if (!message.streaming) {
-                Text(time, style = MaterialTheme.typography.labelSmall, color = HeatColors.TextTertiary, modifier = Modifier.padding(top = 2.dp, start = 4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 4.dp)) {
+                    Text(time, style = MaterialTheme.typography.labelSmall, color = HeatColors.TextTertiary)
+                    if (onSpeak != null) {
+                        IconButton(onClick = onSpeak, modifier = Modifier.size(32.dp)) {
+                            Icon(
+                                painter = painterResource(if (speaking) R.drawable.ic_stop else R.drawable.ic_volume),
+                                contentDescription = stringResource(if (speaking) R.string.ai_speak_stop else R.string.ai_speak),
+                                tint = if (speaking) HeatColors.Accent else HeatColors.TextSecondary,
+                                modifier = Modifier.size(16.dp),
+                            )
+                        }
+                    }
+                }
             }
         }
     }
@@ -588,6 +635,30 @@ private fun InputBar(generating: Boolean, onSend: (String) -> Unit, onStop: () -
             text = ""
         }
     }
+
+    // Voice: Android's own speech-recognition screen. The spoken question is sent straight away,
+    // so asking out loud is one step; the user's message appears in the chat and can be retried.
+    val context = LocalContext.current
+    val voiceIntent = remember {
+        Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+            .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            .putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+    }
+    val voiceAvailable = remember { voiceIntent.resolveActivity(context.packageManager) != null }
+    val voicePrompt = stringResource(R.string.ai_voice_prompt)
+    val voiceLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val spoken = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
+            if (!spoken.isNullOrBlank() && !generating) onSend(spoken)
+        }
+    }
+    fun startVoice() {
+        try {
+            voiceLauncher.launch(Intent(voiceIntent).putExtra(RecognizerIntent.EXTRA_PROMPT, voicePrompt))
+        } catch (_: ActivityNotFoundException) {
+            // No recogniser after all; typing still works.
+        }
+    }
     Surface(color = HeatColors.Background, border = BorderStroke(1.dp, HeatColors.OutlineSubtle)) {
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
@@ -610,6 +681,12 @@ private fun InputBar(generating: Boolean, onSend: (String) -> Unit, onStop: () -
                     onClick = onStop,
                     colors = IconButtonDefaults.filledIconButtonColors(containerColor = HeatColors.SurfaceHighest, contentColor = HeatColors.TextPrimary),
                 ) { Icon(painterResource(R.drawable.ic_stop), stringResource(R.string.ai_stop)) }
+            } else if (text.isBlank() && voiceAvailable) {
+                // Nothing typed: the main button becomes the microphone.
+                FilledIconButton(
+                    onClick = { startVoice() },
+                    colors = IconButtonDefaults.filledIconButtonColors(containerColor = HeatColors.Accent, contentColor = HeatColors.OnAccent),
+                ) { Icon(painterResource(R.drawable.ic_mic), stringResource(R.string.ai_voice)) }
             } else {
                 FilledIconButton(
                     onClick = { submit() },

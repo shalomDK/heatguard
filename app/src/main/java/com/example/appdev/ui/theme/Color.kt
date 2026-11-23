@@ -7,6 +7,10 @@ import com.example.appdev.domain.thermal.TemperatureLevel
 object HeatColors {
     val Background = Color(0xFF0A0E13)
     val Surface = Color(0xFF11161D)
+    /** Top of the card gradient: a touch lighter than [Surface]. */
+    val SurfaceLit = Color(0xFF18202B)
+    /** Top of the screen background gradient. */
+    val BackgroundTop = Color(0xFF111B28)
     val SurfaceRaised = Color(0xFF18202A)
     val SurfaceHighest = Color(0xFF202A36)
     val Outline = Color(0xFF2A3644)

@@ -28,6 +28,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.example.appdev.ui.components.AssistantIconButton
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.graphics.Color
@@ -93,6 +94,7 @@ fun HistoryScreen(
                     )
                 }
             }
+            AssistantIconButton()
         }
         Spacer(Modifier.height(16.dp))
 
@@ -106,7 +108,7 @@ fun HistoryScreen(
                     IncidentCard(incident, state.unit, onClick = { onOpenIncident(incident.id) })
                 }
                 item { ExportCard(state = export) }
-                item { Spacer(Modifier.height(80.dp)) }
+                item { Spacer(Modifier.height(8.dp)) }
             }
         }
     }

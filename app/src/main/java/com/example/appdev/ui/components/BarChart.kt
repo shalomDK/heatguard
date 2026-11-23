@@ -30,8 +30,12 @@ fun BarChart(
     color: Color = HeatColors.Accent,
     highlightColor: Color = HeatColors.Critical,
     barAreaHeight: androidx.compose.ui.unit.Dp = 84.dp,
+    /** Fixes the top of the scale (e.g. 100 for percentages). By default bars scale to the largest value. */
+    maxValue: Int? = null,
+    /** Appended to each bar's number, e.g. "%". */
+    valueSuffix: String = "",
 ) {
-    val maxValue = (bars.maxOfOrNull { it.value } ?: 0).coerceAtLeast(1)
+    val scaleTop = (maxValue ?: bars.maxOfOrNull { it.value } ?: 0).coerceAtLeast(1)
     Row(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -46,12 +50,12 @@ fun BarChart(
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 Text(
-                    bar.value.toString(),
+                    bar.value.toString() + valueSuffix,
                     style = MaterialTheme.typography.labelMedium,
                     color = if (bar.value > 0) HeatColors.TextPrimary else HeatColors.TextTertiary,
                 )
                 Box(Modifier.height(barAreaHeight), contentAlignment = Alignment.BottomCenter) {
-                    val fraction = bar.value.toFloat() / maxValue
+                    val fraction = (bar.value.toFloat() / scaleTop).coerceIn(0f, 1f)
                     Box(
                         Modifier
                             .width(22.dp)

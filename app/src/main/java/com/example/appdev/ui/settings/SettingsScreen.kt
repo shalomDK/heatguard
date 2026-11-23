@@ -35,6 +35,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.example.appdev.ui.components.AssistantIconButton
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
@@ -75,6 +76,7 @@ fun SettingsRoute(
             onHysteresisChange = viewModel::setHysteresis,
             onNotificationsChange = viewModel::setNotificationsEnabled,
             onVibrationChange = viewModel::setVibrationEnabled,
+            onPreAlertsChange = viewModel::setPreAlertsEnabled,
             onUnitChange = viewModel::setUnit,
             onReset = viewModel::resetToDefaults,
             demoEnabled = demoEnabled,
@@ -94,6 +96,7 @@ fun SettingsScreen(
     onHysteresisChange: (Float) -> Unit,
     onNotificationsChange: (Boolean) -> Unit,
     onVibrationChange: (Boolean) -> Unit,
+    onPreAlertsChange: (Boolean) -> Unit,
     onUnitChange: (TemperatureUnit) -> Unit,
     onReset: () -> Unit,
     demoEnabled: Boolean,
@@ -107,10 +110,11 @@ fun SettingsScreen(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 88.dp),
+            .padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Column {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
             Text(
                 text = stringResource(R.string.settings_title),
                 style = MaterialTheme.typography.headlineMedium,
@@ -122,6 +126,8 @@ fun SettingsScreen(
                 style = MaterialTheme.typography.bodyMedium,
                 color = HeatColors.TextSecondary,
             )
+            }
+            AssistantIconButton()
         }
 
         HeatCard(modifier = Modifier.fillMaxWidth(), spacing = 10.dp) {
@@ -190,6 +196,12 @@ fun SettingsScreen(
                 body = stringResource(R.string.settings_vibration_body),
                 checked = settings.vibrationEnabled,
                 onCheckedChange = onVibrationChange,
+            )
+            SwitchRow(
+                title = stringResource(R.string.settings_pre_alert_title),
+                body = stringResource(R.string.settings_pre_alert_body),
+                checked = settings.preAlertsEnabled,
+                onCheckedChange = onPreAlertsChange,
             )
         }
 

@@ -58,11 +58,12 @@ object DemoSimulator {
 
     // Rates are faster than a real phone so a demo shows a full story in minutes, but slow enough
     // that the forecast (which needs about a minute of readings) appears well before the alert:
-    // from the default 28 C, heating at 0.08 C/s reaches the 40 C threshold after 150 s, and the
-    // forecast is visible from about 60 s onwards.
-    const val HEAT_RATE_C_PER_SEC = 0.08f
+    // from the default 28 C, heating at 0.06 C/s reaches the 40 C threshold after 200 s. The forecast
+    // is available from about 60 s, and the "heating fast" pre-alert (5 minutes or less to go) fires
+    // as soon as it is, a couple of minutes before the real alert.
+    const val HEAT_RATE_C_PER_SEC = 0.06f
     const val COOL_RATE_C_PER_SEC = 0.12f
-    const val CHARGING_HEAT_RATE_C_PER_SEC = 0.06f
+    const val CHARGING_HEAT_RATE_C_PER_SEC = 0.05f
     const val MANUAL_MAX_RATE_C_PER_SEC = 2f
 
     const val HOLD_SECONDS = 20f

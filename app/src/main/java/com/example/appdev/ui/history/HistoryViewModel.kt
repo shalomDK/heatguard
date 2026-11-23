@@ -9,6 +9,8 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.appdev.HeatGuardApp
 import com.example.appdev.data.settings.SettingsRepository
+import com.example.appdev.domain.autopsy.AutopsyReport
+import com.example.appdev.domain.autopsy.HeatAutopsy
 import com.example.appdev.domain.incident.Incident
 import com.example.appdev.domain.incident.IncidentRepository
 import com.example.appdev.domain.incident.IncidentTimeline
@@ -18,6 +20,7 @@ import com.example.appdev.domain.model.TemperatureUnit
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
@@ -68,9 +71,11 @@ sealed interface DetailUiState {
         val incident: Incident,
         val timeline: List<TimelineEntry>,
         val unit: TemperatureUnit,
+        val autopsy: AutopsyReport,
     ) : DetailUiState
 }
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class IncidentDetailViewModel(
     savedStateHandle: SavedStateHandle,
     repository: IncidentRepository,
@@ -79,15 +84,21 @@ class IncidentDetailViewModel(
 
     private val incidentId: Long = savedStateHandle.get<Long>(ARG_ID) ?: -1L
 
+    // Every incident of the same kind (real or demo), so this one can be compared with the user's own history.
+    private val sameKind = repository.observeIncident(incidentId).flatMapLatest { incident ->
+        if (incident == null) flowOf(emptyList()) else repository.observeIncidents(incident.source)
+    }
+
     val uiState: StateFlow<DetailUiState> = combine(
         repository.observeIncident(incidentId),
         repository.observeSamples(incidentId),
         settingsRepository.settings.map { it.unit },
-    ) { incident, samples, unit ->
+        sameKind,
+    ) { incident, samples, unit, all ->
         if (incident == null) {
             DetailUiState.NotFound
         } else {
-            DetailUiState.Loaded(incident, IncidentTimeline.build(incident, samples), unit)
+            DetailUiState.Loaded(incident, IncidentTimeline.build(incident, samples), unit, HeatAutopsy.analyze(incident, all))
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DetailUiState.Loading)
 

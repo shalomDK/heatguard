@@ -67,4 +67,12 @@ class MarkdownLiteTest {
         assertEquals(BlockKind.PARAGRAPH, MarkdownLite.parse("38.4 - 40.0 is the gap").single().kind)
         assertEquals(BlockKind.PARAGRAPH, MarkdownLite.parse("-5 degrees").single().kind)
     }
+
+    @Test
+    fun `plain text for speech has no markdown marks`() {
+        val markdown = listOf("## Summary", "Your phone is **warm** at `38.4` degrees.", "- unplug it", "1. wait a bit").joinToString("\n")
+        val expected = listOf("Summary", "Your phone is warm at 38.4 degrees.", "unplug it", "wait a bit").joinToString("\n")
+        assertEquals(expected, MarkdownLite.plainText(markdown))
+        assertEquals("", MarkdownLite.plainText("   "))
+    }
 }

@@ -25,6 +25,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.example.appdev.ui.components.AssistantIconButton
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.platform.LocalContext
@@ -128,10 +129,11 @@ fun InsightsScreen(state: InsightsUiState, modifier: Modifier = Modifier) {
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 88.dp),
+            .padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Column {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
             Text(
                 stringResource(R.string.insights_title),
                 style = MaterialTheme.typography.headlineMedium,
@@ -143,7 +145,11 @@ fun InsightsScreen(state: InsightsUiState, modifier: Modifier = Modifier) {
                 style = MaterialTheme.typography.bodyMedium,
                 color = HeatColors.TextSecondary,
             )
+            }
+            AssistantIconButton()
         }
+
+        ChargingLabCard()
 
         if (report == null) {
             Box(Modifier.fillMaxWidth().height(160.dp), contentAlignment = Alignment.Center) {

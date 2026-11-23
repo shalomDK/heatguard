@@ -79,6 +79,10 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         dataStore.edit { it[Keys.NOTIFICATIONS] = enabled }
     }
 
+    suspend fun setPreAlertsEnabled(enabled: Boolean) {
+        dataStore.edit { it[Keys.PRE_ALERTS] = enabled }
+    }
+
     suspend fun setMonitoringEnabled(enabled: Boolean) {
         dataStore.edit { it[Keys.MONITORING] = enabled }
     }
@@ -91,7 +95,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         dataStore.edit { prefs ->
             listOf(
                 Keys.THRESHOLD_C, Keys.WARNING_MARGIN_C, Keys.HYSTERESIS_C, Keys.UNIT,
-                Keys.NOTIFICATIONS, Keys.VIBRATION, Keys.ACTIVE_PROFILE,
+                Keys.NOTIFICATIONS, Keys.VIBRATION, Keys.ACTIVE_PROFILE, Keys.PRE_ALERTS,
             ).forEach { prefs.remove(it) }
             ProfileType.entries.forEach { p ->
                 prefs.remove(Keys.threshold(p))
@@ -135,6 +139,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
             notificationsEnabled = prefs[Keys.NOTIFICATIONS] ?: defaults.notificationsEnabled,
             vibrationEnabled = effective.vibrationEnabled,
             monitoringEnabled = prefs[Keys.MONITORING] ?: defaults.monitoringEnabled,
+            preAlertsEnabled = prefs[Keys.PRE_ALERTS] ?: defaults.preAlertsEnabled,
         )
     }
 
@@ -146,6 +151,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         val NOTIFICATIONS = booleanPreferencesKey("notifications_enabled")
         val VIBRATION = booleanPreferencesKey("vibration_enabled")
         val MONITORING = booleanPreferencesKey("monitoring_enabled")
+        val PRE_ALERTS = booleanPreferencesKey("pre_alerts_enabled")
         val ACTIVE_PROFILE = stringPreferencesKey("active_profile")
 
         fun threshold(p: ProfileType) = floatPreferencesKey("profile_${p.name.lowercase()}_threshold_c")

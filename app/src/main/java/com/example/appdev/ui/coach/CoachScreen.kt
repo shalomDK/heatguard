@@ -31,6 +31,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.example.appdev.ui.components.AssistantIconButton
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.draw.clip
@@ -85,10 +86,11 @@ fun CoachScreen(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 88.dp),
+            .padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Column {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
             Text(
                 stringResource(R.string.coach_title),
                 style = MaterialTheme.typography.headlineMedium,
@@ -100,6 +102,8 @@ fun CoachScreen(
                 style = MaterialTheme.typography.bodyMedium,
                 color = HeatColors.TextSecondary,
             )
+            }
+            AssistantIconButton()
         }
 
         ProfileSelector(active = state.assessment.settings.activeProfile, onSelect = onSelectProfile)

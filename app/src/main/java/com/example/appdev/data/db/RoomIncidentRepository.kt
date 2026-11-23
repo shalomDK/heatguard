@@ -1,6 +1,7 @@
 package com.example.appdev.data.db
 
 import com.example.appdev.domain.incident.Incident
+import com.example.appdev.domain.incident.IncidentContext
 import com.example.appdev.domain.incident.IncidentRepository
 import com.example.appdev.domain.incident.IncidentSample
 import com.example.appdev.domain.model.ChargeStatus
@@ -48,6 +49,12 @@ internal fun Incident.toEntity() = IncidentEntity(
     endBatteryPercent = endBatteryPercent,
     startChargeStatus = startChargeStatus.name,
     startPowerSource = startPowerSource.name,
+    ctxBrightnessPercent = context?.brightnessPercent,
+    ctxPowerSaveOn = context?.powerSaveOn,
+    ctxFreeRamPercent = context?.freeRamPercent,
+    ctxLowMemory = context?.lowMemory,
+    ctxHeatingRateCPerMin = context?.heatingRateCPerMin,
+    ctxTempFiveMinBeforeC = context?.tempFiveMinutesBeforeC,
 )
 
 internal fun IncidentEntity.toDomain() = Incident(
@@ -65,6 +72,19 @@ internal fun IncidentEntity.toDomain() = Incident(
     endBatteryPercent = endBatteryPercent,
     startChargeStatus = enumOrDefault(startChargeStatus, ChargeStatus.UNKNOWN),
     startPowerSource = enumOrDefault(startPowerSource, PowerSource.UNKNOWN),
+    // Rows from before database version 3 have no context at all; keep that as null, not an empty context.
+    context = listOf<Any?>(
+        ctxBrightnessPercent, ctxPowerSaveOn, ctxFreeRamPercent, ctxLowMemory, ctxHeatingRateCPerMin, ctxTempFiveMinBeforeC,
+    ).takeIf { values -> values.any { it != null } }?.let {
+        IncidentContext(
+            brightnessPercent = ctxBrightnessPercent,
+            powerSaveOn = ctxPowerSaveOn,
+            freeRamPercent = ctxFreeRamPercent,
+            lowMemory = ctxLowMemory,
+            heatingRateCPerMin = ctxHeatingRateCPerMin,
+            tempFiveMinutesBeforeC = ctxTempFiveMinBeforeC,
+        )
+    },
 )
 
 internal fun IncidentSample.toEntity() = IncidentSampleEntity(

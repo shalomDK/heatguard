@@ -18,6 +18,8 @@ data class UserSettings(
     val notificationsEnabled: Boolean = true,
     val vibrationEnabled: Boolean = true,
     val monitoringEnabled: Boolean = false,
+    /** Warn a few minutes *before* the threshold is reached, when the forecast says it is coming. */
+    val preAlertsEnabled: Boolean = true,
     /** Null means "Custom": the global values above are in effect. Otherwise they come from the profile. */
     val activeProfile: ProfileType? = null,
 ) {

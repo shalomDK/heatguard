@@ -1,6 +1,10 @@
 package com.example.appdev.ui.dashboard
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -66,32 +70,32 @@ fun PreCallReadinessCard(readiness: PreCallReadiness, system: SystemThermalState
                 stringResource(R.string.readiness_title).uppercase(),
                 style = MaterialTheme.typography.labelSmall,
                 color = HeatColors.TextSecondary,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).fillMaxHeight(),
             )
             StatusChip(stringResource(readiness.status.labelRes()), color)
         }
         Text(stringResource(readiness.status.headlineRes()), style = MaterialTheme.typography.titleLarge, color = color)
 
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Tile(
                 label = stringResource(R.string.readiness_tile_temperature),
                 value = readiness.temperatureC?.let { Temperatures.format(it, unit) } ?: "--",
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).fillMaxHeight(),
             )
             Tile(
                 label = stringResource(R.string.readiness_tile_trend),
                 value = trendText(readiness, unit),
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).fillMaxHeight(),
             )
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Tile(
                 label = stringResource(R.string.readiness_tile_status),
                 value = androidStatusText(readiness, system),
                 valueColor = readiness.thermalStatus.color().takeIf { readiness.thermalStatus != null } ?: HeatColors.TextTertiary,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).fillMaxHeight(),
             )
-            CoolingTile(readiness.cooling, unit, Modifier.weight(1f))
+            CoolingTile(readiness.cooling, unit, Modifier.weight(1f).fillMaxHeight())
         }
 
         if (readiness.reasons.isNotEmpty()) {

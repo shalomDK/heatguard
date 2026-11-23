@@ -9,6 +9,13 @@
     <!-- Used only by the optional, opt-in AI assistant to reach the Groq API over HTTPS. -->
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <queries>
+        <!-- To check that the device has a speech recogniser before showing the microphone button. -->
+        <intent>
+            <action android:name="android.speech.action.RECOGNIZE_SPEECH" />
+        </intent>
+    </queries>
+
     <application
         android:name=".HeatGuardApp"
         android:allowBackup="true"

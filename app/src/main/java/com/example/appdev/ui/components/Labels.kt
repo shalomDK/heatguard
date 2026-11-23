@@ -79,3 +79,17 @@ fun rememberDateTimeFormatter(): (Long) -> String {
         formatter
     }
 }
+
+/** Formats epoch millis as a short clock time without seconds, e.g. "14:32". For compact UI such as the Live pill. */
+@Composable
+fun rememberClockFormatter(): (Long) -> String {
+    val context = LocalContext.current
+    val is24h = DateFormat.is24HourFormat(context)
+    return remember(is24h) {
+        val locale = Locale.getDefault()
+        val pattern = DateFormat.getBestDateTimePattern(locale, if (is24h) "Hm" else "hma")
+        val format = SimpleDateFormat(pattern, locale)
+        val formatter: (Long) -> String = { millis -> format.format(Date(millis)) }
+        formatter
+    }
+}

@@ -122,6 +122,15 @@ class SettingsAndThermalRepositoryTest {
     }
 
     @Test
+    fun `pre-alerts default to on, persist, and reset to on`() = runBlocking {
+        assertEquals(true, settings.settings.first().preAlertsEnabled)
+        settings.setPreAlertsEnabled(false)
+        assertEquals(false, settings.settings.first().preAlertsEnabled)
+        settings.resetToDefaults()
+        assertEquals(true, settings.settings.first().preAlertsEnabled)
+    }
+
+    @Test
     fun `reset keeps the monitoring preference`() = runBlocking {
         settings.setMonitoringEnabled(true)
         settings.setHysteresis(4f)

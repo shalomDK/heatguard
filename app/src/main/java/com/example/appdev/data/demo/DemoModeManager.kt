@@ -1,10 +1,13 @@
 package com.example.appdev.data.demo
 
 import com.example.appdev.data.cooling.CoolingSessionManager
+import com.example.appdev.domain.charging.ChargeSessionRepository
+import com.example.appdev.domain.charging.SimulatedCharging
 import com.example.appdev.domain.cooling.CoolingRepository
 import com.example.appdev.domain.incident.IncidentRepository
 import com.example.appdev.domain.incident.IncidentTracker
 import com.example.appdev.domain.model.ReadingSource
+import com.example.appdev.domain.perf.SpeedTestRepository
 import com.example.appdev.platform.MonitoringRunner
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -26,6 +29,10 @@ class DemoModeManager(
     private val coolingManager: CoolingSessionManager,
     private val runner: MonitoringRunner,
     private val scope: CoroutineScope,
+    private val speedTests: SpeedTestRepository,
+    /** Charging Lab sessions; in Demo Mode a fixed simulated set is stored so the report card has data. */
+    private val chargeSessions: ChargeSessionRepository? = null,
+    private val clock: () -> Long = System::currentTimeMillis,
 ) {
     private val mutex = Mutex()
 
@@ -35,6 +42,7 @@ class DemoModeManager(
                 if (on == controller.enabled.value) return@withLock
                 if (on) {
                     clearDemoData()
+                    seedDemoData()
                     controller.setEnabled(true)
                     runner.acquire(MonitoringRunner.OWNER_DEMO)
                 } else {
@@ -48,7 +56,12 @@ class DemoModeManager(
 
     /** Deletes demo incidents and cooling sessions (e.g. to restart a presentation). */
     fun resetData() {
-        scope.launch { mutex.withLock { clearDemoData() } }
+        scope.launch {
+            mutex.withLock {
+                clearDemoData()
+                if (controller.enabled.value) seedDemoData()
+            }
+        }
     }
 
     /** Removes demo rows left behind if the process ended during a demo. Safe to call at startup. */
@@ -65,5 +78,12 @@ class DemoModeManager(
         incidentTracker.reset()
         incidents.deleteAll(ReadingSource.DEMO)
         cooling.deleteAll(ReadingSource.DEMO)
+        speedTests.deleteAll(ReadingSource.DEMO)
+        chargeSessions?.deleteAll(ReadingSource.DEMO)
+    }
+
+    private suspend fun seedDemoData() {
+        val repository = chargeSessions ?: return
+        SimulatedCharging.sessions(clock()).forEach { repository.start(it) }
     }
 }

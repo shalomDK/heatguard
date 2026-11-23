@@ -9,6 +9,12 @@ interface AlertPresenter {
     fun cancelOverheatAlert()
     fun vibrate()
 
+    /** An early warning: the phone is projected to reach the threshold in about [minutes] minutes. */
+    fun showPreAlert(snapshot: BatterySnapshot, settings: UserSettings, minutes: Int)
+
+    /** Removes the early warning (the forecast eased, or the real alert has taken over). */
+    fun cancelPreAlert()
+
     /** Refreshes the persistent monitoring notification. */
     fun updateMonitoring(snapshot: BatterySnapshot?, settings: UserSettings, overheating: Boolean)
 }

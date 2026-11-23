@@ -21,6 +21,13 @@ data class IncidentEntity(
     val endBatteryPercent: Int?,
     val startChargeStatus: String,
     val startPowerSource: String,
+    // Context when the incident began (database version 3). All nullable: absent = not recorded.
+    val ctxBrightnessPercent: Int? = null,
+    val ctxPowerSaveOn: Boolean? = null,
+    val ctxFreeRamPercent: Int? = null,
+    val ctxLowMemory: Boolean? = null,
+    val ctxHeatingRateCPerMin: Float? = null,
+    val ctxTempFiveMinBeforeC: Float? = null,
 )
 
 @Entity(
